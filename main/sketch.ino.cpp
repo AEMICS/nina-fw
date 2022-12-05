@@ -1,4 +1,34 @@
 /*
+ets Jul 29 2019 12:21:46
+
+rst:0x3 (SW_RESET),boot:0x33 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff_0018,len:4     // sram
+load:0x3fff_001c,len:1032  // sram
+load:0x4007_8000,len:10884 // sram Cache
+load:0x4008_0400,len:5232  // sram
+Secure boot check fail�
+
+***** originele hex:
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x33 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff82a0,len:12
+ho 0 tail 12 room 4
+load:0x3fff82ac,len:5988
+load:0x40078000,len:12404
+load:0x40080400,len:25516
+entry 0x40080874
+
+
+ */
+
+/*
   This file is part of the Arduino NINA firmware.
   Copyright (c) 2018 Arduino SA. All rights reserved.
 
@@ -39,6 +69,7 @@ extern "C" {
 #include <WiFi.h>
 
 #include "CommandHandler.h"
+#include "pin_define.h"
 
 #define SPI_BUFFER_LEN SPI_MAX_DMA_LEN
 
@@ -61,8 +92,8 @@ void setDebug(int d) {
   debug = d;
 
   if (debug) {
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[1], 0);
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[3], 0);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[PIN_UART_TX], FUNC_U0TXD_U0TXD);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[PIN_UART_RX], FUNC_U0RXD_U0RXD);
 
     const char* default_uart_dev = "/dev/uart/0";
     _GLOBAL_REENT->_stdin  = fopen(default_uart_dev, "r");
@@ -75,8 +106,8 @@ void setDebug(int d) {
     ets_install_uart_printf();
     uart_tx_switch(CONFIG_CONSOLE_UART_NUM);
   } else {
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[1], PIN_FUNC_GPIO);
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[3], PIN_FUNC_GPIO);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[PIN_UART_TX], PIN_FUNC_GPIO);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[PIN_UART_RX], PIN_FUNC_GPIO);
 
     _GLOBAL_REENT->_stdin  = (FILE*) &__sf_fake_stdin;
     _GLOBAL_REENT->_stdout = (FILE*) &__sf_fake_stdout;
@@ -88,53 +119,43 @@ void setDebug(int d) {
 }
 
 void setupWiFi();
-void setupBluetooth();
+//void setupBluetooth();
 
 void setup() {
-  setDebug(debug);
+  setDebug(debug); // Not used
 
   // put SWD and SWCLK pins connected to SAMD as inputs
-  pinMode(15, INPUT);
-  pinMode(21, INPUT);
+  //pinMode(15, INPUT); Used for SPI_CS
+  //pinMode(21, INPUT); Used for LED Blue
 
-#if defined(NANO_RP2040_CONNECT)
-  pinMode(26, OUTPUT);
-  pinMode(27, OUTPUT);
-  digitalWrite(26, HIGH);
-  digitalWrite(27, HIGH);
-#endif
+  pinMode(PIN_LED_B, OUTPUT);
+  pinMode(PIN_LED_R, OUTPUT);
+  digitalWrite(PIN_LED_B, LOW);
+  digitalWrite(PIN_LED_R, LOW);
 
-  pinMode(5, INPUT);
-  if (digitalRead(5) == LOW) {
-    setupBluetooth();
-  } else {
+  //pinMode(PIN_SPI_CSN, INPUT); 
+  //if (digitalRead(PIN_SPI_CSN) == LOW) {
+  //  setupBluetooth();
+  //} else {
     setupWiFi();
-  }
+  //}
 }
 
 // #define UNO_WIFI_REV2
-
+/*
 void setupBluetooth() {
   periph_module_enable(PERIPH_UART1_MODULE);
   periph_module_enable(PERIPH_UHCI0_MODULE);
 
-#if defined(UNO_WIFI_REV2)
-  uart_set_pin(UART_NUM_1, 1, 3, 33, 0); // TX, RX, RTS, CTS
-#elif defined(NANO_RP2040_CONNECT)
-  uart_set_pin(UART_NUM_1, 1, 3, 33, 12); // TX, RX, RTS, CTS
-#else
-  uart_set_pin(UART_NUM_1, 23, 12, 18, 5);
-#endif
-  uart_set_hw_flow_ctrl(UART_NUM_1, UART_HW_FLOWCTRL_CTS_RTS, 5);
+
+  uart_set_pin(UART_NUM_1, PIN_UART_TX, PIN_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);// TX, RX, <RTS>, <CTS>
+  //uart_set_hw_flow_ctrl(UART_NUM_1, UART_HW_FLOWCTRL_CTS_RTS, 5);
 
   esp_bt_controller_config_t btControllerConfig = BT_CONTROLLER_INIT_CONFIG_DEFAULT(); 
 
   btControllerConfig.hci_uart_no = UART_NUM_1;
-#if defined(UNO_WIFI_REV2) || defined(NANO_RP2040_CONNECT)
-  btControllerConfig.hci_uart_baudrate = 115200;
-#else
-  btControllerConfig.hci_uart_baudrate = 912600;
-#endif
+  btControllerConfig.hci_uart_baudrate = 115200;  // TODO: bepalen welke waarde
+//  btControllerConfig.hci_uart_baudrate = 912600;
 
   esp_bt_controller_init(&btControllerConfig);
   while (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE);
@@ -147,7 +168,7 @@ void setupBluetooth() {
     vTaskDelay(portMAX_DELAY);
   }
 }
-
+*/
 unsigned long getTime() {
   int ret = 0;
   do {
@@ -172,6 +193,7 @@ void setupWiFi() {
   if (WiFi.status() == WL_NO_SHIELD) {
     while (1); // no shield
   }
+  digitalWrite(PIN_LED_R, HIGH);
 
   commandBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);
   responseBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);
