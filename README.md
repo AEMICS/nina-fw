@@ -45,7 +45,7 @@ cd tools
 ./sslcheck.sh -c ../data/roots.pem -l url_lists/url_list_moz.com.txt -e
 ```
 
-## License
+# License
 
 Copyright (c) 2018-2019 Arduino SA. All rights reserved.
 
