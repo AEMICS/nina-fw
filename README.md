@@ -28,6 +28,8 @@ python combine.py
 ```
 This produces `NINA_W102.bin` file (a different name can be specified as parameter). To flash this file you can use https://arduino.github.io/arduino-fwuploader/2.2/usage/#firmware-flashing
 
+# Below not valid for AEMICS MudPuddle, no chip for encrypt
+
 ## Build a new certificate list (based on the Google Android root CA list)
 ```bash
 git clone https://android.googlesource.com/platform/system/ca-certificates
